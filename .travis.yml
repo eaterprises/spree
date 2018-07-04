@@ -1,28 +1,39 @@
-before_script:
-  - sh -e /etc/init.d/xvfb start
-  - export DISPLAY=:99.0
-bundler_args: --without development production --quiet
+language: ruby
+rvm:
+  - "2.1.9"
+
+# The Open Food Network is using PostgreSQL.
+# addons:
+#   postgresql: "9.5"
+
 env:
-  - GEM=api DB=sqlite
-  - GEM=api DB=mysql
-  - GEM=api DB=postgres
-  - GEM=backend DB=sqlite
-  - GEM=backend DB=mysql
-  - GEM=backend DB=postgres
+  #- GEM=api DB=sqlite
+  #- GEM=api DB=mysql
+  #- GEM=api DB=postgres
+  #- GEM=backend DB=sqlite
+  #- GEM=backend DB=mysql
+  #- GEM=backend DB=postgres
   - GEM=core DB=sqlite
-  - GEM=core DB=mysql
-  - GEM=core DB=postgres
-  - GEM=frontend DB=sqlite
-  - GEM=frontend DB=mysql
-  - GEM=frontend DB=postgres
+  #- GEM=core DB=mysql
+  #- GEM=core DB=postgres
+  #- GEM=frontend DB=sqlite
+  #- GEM=frontend DB=mysql
+  #- GEM=frontend DB=postgres
+
+cache: bundler
+bundler_args: --without development production
+
 before_install:
-  - cd $GEM; export BUNDLE_GEMFILE="`pwd`/Gemfile"
+  # Changing directory, but BUNDLE_GEMFILE still points to the global one.
+  # That ensures that all dependencies are installed. For example building
+  # the test_app in core, needs dependencies of api. But core/Gemfile doesn't
+  # declare a dependency on api (which is correct apart from tests).
+  # This should also result in a consistent gem set for Travis' bundler cache.
+  - cd "$GEM"
+
 script:
   - bundle exec rake test_app
-  - bundle exec rake spec
+  - #bundle exec rake spec
+
 notifications:
-  email:
-    - ryan@spreecommerce.com
-rvm:
-  - 1.9.3
-  - 2.0.0
+  email: false
