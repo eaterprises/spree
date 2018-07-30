@@ -23,6 +23,7 @@ group :test do
   gem 'factory_girl_rails', '~> 4.2.1'
   gem 'launchy'
   gem 'pry'
+  gem 'rake', '< 11.0'
   gem 'rspec-rails', '~> 2.14.0'
   gem 'selenium-webdriver', '~> 2.33'
   gem 'simplecov'
