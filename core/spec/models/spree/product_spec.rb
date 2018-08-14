@@ -222,11 +222,10 @@ describe Spree::Product do
         end
 
         it "cannot create another product with the same permalink" do
-          pending '[Spree build] Failing spec'
           @product2 = create(:product, :name => 'foo')
           lambda do
             @product2.update_attributes(:permalink => @product1.permalink)
-          end.should raise_error(ActiveRecord::RecordNotUnique)
+          end.should raise_error(ActiveRecord::StatementInvalid, /SQLite3::ConstraintException/)
         end
       end
 
