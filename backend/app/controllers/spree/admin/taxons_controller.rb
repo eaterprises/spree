@@ -8,7 +8,7 @@ module Spree
         if params[:ids]
           @taxons = Spree::Taxon.where(:id => params[:ids].split(','))
         else
-          @taxons = Spree::Taxon.limit(20).search(:name_cont => params[:q]).result
+          @taxons = Spree::Taxon.limit(20).ransack(:name_cont => params[:q]).result
         end
       end
 
@@ -20,7 +20,7 @@ module Spree
             format.json {render :json => @taxon.to_json }
           end
         else
-          flash[:error] = t('errors.messages.could_not_create_taxon')
+          flash[:error] = Spree.t('errors.messages.could_not_create_taxon')
           respond_with(@taxon) do |format|
             format.html { redirect_to @taxonomy ? edit_admin_taxonomy_url(@taxonomy) : admin_taxonomies_url }
           end

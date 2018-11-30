@@ -9,14 +9,31 @@ module Spree
     validates_presence_of :name
 
     attr_accessible :name, :active, :address1, :address2, :city, :zipcode,
-                    :state_name, :state_id, :country_id, :phone, :country_id
+        :backorderable_default, :state_name, :state_id, :country_id, :phone,
+        :propagate_all_variants
 
     scope :active, -> { where(active: true) }
 
-    after_create :create_stock_items
+    after_create :create_stock_items, :if => "self.propagate_all_variants?"
+
+    # Wrapper for creating a new stock item respecting the backorderable config
+    def propagate_variant(variant)
+      self.stock_items.create!(variant: variant, backorderable: self.backorderable_default)
+    end
+
+    # Return either an existing stock item or create a new one. Useful in
+    # scenarios where the user might not know whether there is already a stock
+    # item for a given variant
+    def set_up_stock_item(variant)
+      self.stock_item(variant) || propagate_variant(variant)
+    end
 
     def stock_item(variant)
       stock_items.where(variant_id: variant).order(:id).first
+    end
+
+    def stock_item_or_create(variant)
+      stock_item(variant) || stock_items.create(variant: variant)
     end
 
     def count_on_hand(variant)
@@ -36,35 +53,31 @@ module Spree
     end
 
     def move(variant, quantity, originator = nil)
-      stock_item(variant).stock_movements.create!(quantity: quantity, originator: originator)
-    end
-
-    def transfer_stock(variant, quantity, destination)
-      move(variant, -quantity, self)
-      destination.move(variant, quantity, self)
+      stock_item_or_create(variant).stock_movements.create!(quantity: quantity,
+                                                            originator: originator)
     end
 
     def fill_status(variant, quantity)
-      item = stock_item(variant)
+      if item = stock_item(variant)
 
-      if item.count_on_hand >= quantity
-        on_hand = quantity
-        backordered = 0
+        if item.count_on_hand >= quantity
+          on_hand = quantity
+          backordered = 0
+        else
+          on_hand = item.count_on_hand
+          on_hand = 0 if on_hand < 0
+          backordered = item.backorderable? ? (quantity - on_hand) : 0
+        end
+
+        [on_hand, backordered]
       else
-        on_hand = item.count_on_hand
-        on_hand = 0 if on_hand < 0
-        backordered = item.backorderable? ? (quantity - on_hand) : 0
+        [0, 0]
       end
-
-      [on_hand, backordered]
     end
 
     private
-
       def create_stock_items
-        Spree::Variant.all.each do |v|
-          self.stock_items.create!(variant: v)
-        end
+        Variant.find_each { |variant| self.propagate_variant(variant) }
       end
   end
 end

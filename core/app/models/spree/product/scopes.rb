@@ -53,7 +53,7 @@ module Spree
     # This scope selects products in taxon AND all its descendants
     # If you need products only within one taxon use
     #
-    #   Spree::Product.taxons_id_eq(x)
+    #   Spree::Product.joins(:taxons).where(Taxon.table_name => { :id => taxon.id })
     #
     # If you're using count on the result of this scope, you must use the
     # `:distinct` option as well:
@@ -68,9 +68,14 @@ module Spree
     #
     #   SELECT COUNT(*) ...
     add_search_scope :in_taxon do |taxon|
-      select("DISTINCT(spree_products.id), spree_products.*").
-      joins(:taxons).
-      where(Taxon.table_name => { :id => taxon.self_and_descendants.pluck(:id) })
+      if ActiveRecord::Base.connection.adapter_name == "PostgreSQL"
+        scope = select("DISTINCT ON (spree_products.id) spree_products.*")
+      else
+        scope = select("DISTINCT(spree_products.id), spree_products.*")
+      end
+
+      scope.joins(:taxons).
+      where(Taxon.table_name => { :id => taxon.self_and_descendants.map(&:id) })
     end
 
     # This scope selects products in all taxons AND all its descendants

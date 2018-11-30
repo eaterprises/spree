@@ -21,7 +21,6 @@ Spree gem you automatically require all of the necessary gem dependencies which 
 * spree_backend (Admin area)
 * spree_cmd (Command-line tools)
 * spree_core (Models & Mailers, the basic components of Spree that it can't run without)
-* spree_dash (Analytics dashboard, depends on backend)
 * spree_sample (Sample data)
 
 All of the gems are designed to work together to provide a fully functional
@@ -30,7 +29,7 @@ interested in. So for example, you could use just the barebones spree\_core gem
 and perhaps combine it with your own custom promotion scheme instead of using
 spree_promo.
 
-[![Code Climate](https://codeclimate.com/badge.png)](https://codeclimate.com/github/spree/spree)
+[![Code Climate](https://codeclimate.com/github/spree/spree.png)](https://codeclimate.com/github/spree/spree)
 
 Installation
 ------------
@@ -65,12 +64,12 @@ spree install my_store -A
 Using stable builds and bleeding edge
 -------------
 
-To use a stable build of Spree, you can manually add Spree to your 
-Rails 3.2.x application. To use the 1-3-stable branch of Spree, add this line to
+To use a stable build of Spree, you can manually add Spree to your
+Rails 3.2.x application. To use the 2-0-stable branch of Spree, add this line to
 your Gemfile.
 
 ```ruby
-gem 'spree', github: 'spree/spree', branch: '1-3-stable'
+gem 'spree', github: 'spree/spree', branch: '2-0-stable'
 ```
 
 Alternatively, if you want to use the bleeding edge version of Spree, use this
@@ -88,7 +87,7 @@ If you wish to have authentication included also, you will need to add the
 `spree_auth_devise` gem as well. Either this:
 
 ```ruby
-gem 'spree_auth_devise', github: 'spree/spree_auth_devise', branch: '1-3-stable'
+gem 'spree_auth_devise', github: 'spree/spree_auth_devise', branch: '2-0-stable'
 ```
 
 Or this:

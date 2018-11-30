@@ -50,7 +50,7 @@ describe Spree::BaseHelper do
 
   # Regression test for #1436
   context "defining custom image helpers" do
-    let(:product) { mock_model(Spree::Product, :images => []) }
+    let(:product) { mock_model(Spree::Product, :images => [], :variant_images => []) }
     before do
       Spree::Image.class_eval do
         attachment_definitions[:attachment][:styles].merge!({:very_strange => '1x1'})
@@ -132,6 +132,12 @@ describe Spree::BaseHelper do
       tags = Nokogiri::HTML.parse(meta_data_tags)
       content = tags.css("meta[name=description]").first["content"]
       assert content.length <= 160, "content length is not truncated to 160 characters"
+    end
+  end
+
+  context "pretty_time" do
+    it "prints in a format" do
+      expect(pretty_time(DateTime.new(2012, 5, 6, 13, 33))).to eq "May 06, 2012  1:33 PM"
     end
   end
 end

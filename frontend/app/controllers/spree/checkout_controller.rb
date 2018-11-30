@@ -27,13 +27,13 @@ module Spree
         return if after_update_attributes
 
         unless @order.next
-          flash[:error] = t(:payment_processing_failed)
+          flash[:error] = Spree.t(:payment_processing_failed)
           redirect_to checkout_state_path(@order.state) and return
         end
 
         if @order.completed?
           session[:order_id] = nil
-          flash.notice = t(:order_processed_successfully)
+          flash.notice = Spree.t(:order_processed_successfully)
           flash[:commerce_tracking] = "nothing special"
           redirect_to completion_route
         else
@@ -84,7 +84,7 @@ module Spree
 
       def ensure_sufficient_stock_lines
         if @order.insufficient_stock_lines.present?
-          flash[:error] = t(:spree_inventory_error_flash_for_insufficient_quantity)
+          flash[:error] = Spree.t(:inventory_error_flash_for_insufficient_quantity)
           redirect_to spree.cart_path
         end
       end
@@ -128,8 +128,6 @@ module Spree
       def before_delivery
         return if params[:order].present?
 
-        @order.create_proposed_shipments
-
         packages = @order.shipments.map { |s| s.to_package }
         @differentiator = Spree::Stock::Differentiator.new(@order, packages)
       end
@@ -143,7 +141,7 @@ module Spree
       end
 
       def rescue_from_spree_gateway_error
-        flash[:error] = t(:spree_gateway_error_flash_for_checkout)
+        flash[:error] = Spree.t(:spree_gateway_error_flash_for_checkout)
         render :edit
       end
 

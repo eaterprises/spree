@@ -2,33 +2,26 @@
 require 'spec_helper'
 
 describe "Order Details", js: true do
-
   let!(:stock_location) { create(:stock_location_with_items) }
   let!(:product) { create(:product, :name => 'spree t-shirt', :price => 20.00) }
   let!(:tote) { create(:product, :name => "Tote", :price => 15.00) }
   let(:order) { create(:order, :state => 'complete', :completed_at => "2011-02-01 12:36:15", :number => "R100") }
+  let(:state) { create(:state) }
   let(:shipment) { create(:shipment, :order => order, :stock_location => stock_location) }
+  let!(:shipping_method) { create(:shipping_method, :name => "Default") }
 
   before do
-    configure_spree_preferences do |config|
-      config.allow_backorders = true
-    end
-    create(:country)
-    create(:state, :country => create(:country))
-    create(:shipping_method, :name => "Default")
     order.shipments.create({stock_location_id: stock_location.id}, without_protection: true)
     order.contents.add(product.master, 2)
   end
 
   context 'as Admin' do
-
     stub_authorization!
 
-    context "edit order page" do
-      after(:each) { I18n.reload! }
+    before { visit spree.edit_admin_order_path(order) }
 
+    context "edit order page" do
       it "should allow me to edit order details" do
-        visit spree.edit_admin_order_path(order)
         page.should have_content("spree t-shirt")
         page.should have_content("$40.00")
 
@@ -42,9 +35,7 @@ describe "Order Details", js: true do
       end
 
       it "can add an item to a shipment" do
-        visit spree.edit_admin_order_path(order)
-
-        select2_search "Tote", :from => I18n.t(:name_or_sku)
+        select2_search "Tote", :from => Spree.t(:name_or_sku)
         within("table.stock-levels") do
           fill_in "stock_item_quantity", :with => 2
           click_icon :plus
@@ -54,18 +45,18 @@ describe "Order Details", js: true do
       end
 
       it "can remove an item from a shipment" do
-        visit spree.edit_admin_order_path(order)
         page.should have_content("spree t-shirt")
 
         within_row(1) do
           click_icon :trash
         end
 
+        # Click "ok" on confirmation dialog
+        page.driver.browser.switch_to.alert.accept
         page.should_not have_content("spree t-shirt")
       end
 
       it "can add tracking information" do
-        visit spree.edit_admin_order_path(order)
         within("table.index tr:nth-child(5)") do
           click_icon :edit
         end
@@ -84,7 +75,18 @@ describe "Order Details", js: true do
         select2 "Default", :from => "Shipping Method"
         click_icon :ok
 
-        page.should have_content("Default:")
+        page.should have_content("Default")
+      end
+
+      context "variant out of stock and not backorderable" do
+        before { product.master.stock_items.first.update_column(:backorderable, false) }
+
+        it "displays out of stock instead of add button" do
+          select2_search product.name, :from => Spree.t(:name_or_sku)
+          within("table.stock-levels") do
+            page.should have_content(Spree.t(:out_of_stock))
+          end
+        end
       end
 
       context "when two stock locations exist" do
@@ -92,9 +94,7 @@ describe "Order Details", js: true do
         before(:each) { london.stock_items.each { |si| si.adjust_count_on_hand(10) } }
 
         it "creates a new shipment when adding a variant from the new location" do
-          visit spree.edit_admin_order_path(order)
-
-          select2_search "Tote", :from => I18n.t(:name_or_sku)
+          select2_search "Tote", :from => Spree.t(:name_or_sku)
           within("table.stock-levels tr:nth-child(2)") do
             fill_in "stock_item_quantity", :with => 2
             click_icon :plus
@@ -107,18 +107,14 @@ describe "Order Details", js: true do
 
         context "when two shipments exist" do
           before(:each) do
-            visit spree.edit_admin_order_path(order)
-
-            select2_search "Tote", :from => I18n.t(:name_or_sku)
+            select2_search "Tote", :from => Spree.t(:name_or_sku)
             within("table.stock-levels tr:nth-child(2)") do
               fill_in "stock_item_quantity", :with => 2
               click_icon :plus
             end
-            page.should have_css("table.stock-contents:nth-child(2)")
-            page.all("table.stock-contents").count.should == 2
           end
 
-          it "can increase quantity of the second shipment's items" do
+          it "updates quantity of the second shipment's items" do
             within("table.stock-contents", :text => tote.name) do
               click_icon :edit
               fill_in "quantity", with: 4
@@ -126,16 +122,6 @@ describe "Order Details", js: true do
             end
 
             page.should have_content("Total: $100.00")
-          end
-
-          it "can decrease quantity of the second shipment's items" do
-            within("table.stock-contents", :text => tote.name) do
-              click_icon :edit
-              fill_in "quantity", with: 1
-              click_icon :ok
-            end
-
-            page.should have_content("Total: $55.00")
           end
 
           it "can add tracking information for the second shipment" do
@@ -179,7 +165,7 @@ describe "Order Details", js: true do
             # database_cleaner attempts to clean it
             sleep(1)
 
-            page.should have_content("Default:")
+            page.should have_content("Default")
           end
         end
       end
@@ -187,7 +173,6 @@ describe "Order Details", js: true do
   end
 
   context 'as Fakedispatch' do
-
     stub_bar_authorization!
 
     it 'should not display order tabs or edit buttons without ability' do
@@ -222,7 +207,7 @@ describe "Order Details", js: true do
       select2 "Default", :from => "Shipping Method"
       click_icon :ok
 
-      page.should have_content("Default:")
+      page.should have_content("Default")
     end
 
     it 'can ship' do
@@ -234,7 +219,5 @@ describe "Order Details", js: true do
         page.should have_content('shipped')
       end
     end
-
   end
-
 end

@@ -19,7 +19,7 @@ module Spree
       update_payment_state
 
       # give each of the shipments a chance to update themselves
-      shipments.each { |shipment| shipment.update!(order) }#(&:update!)
+      shipments.each { |shipment| shipment.update!(order) }
       update_shipment_state
       update_adjustments
       # update totals a second time in case updated adjustments have an effect on the total
@@ -34,6 +34,10 @@ module Spree
         total: order.total
       })
 
+      run_hooks
+    end
+
+    def run_hooks
       update_hooks.each { |hook| order.send hook }
     end
 
@@ -127,7 +131,7 @@ module Spree
       # This promotion provides the most discount, and if two promotions
       # have the same amount, then it will pick the latest one.
       def choose_best_promotion_adjustment
-        if best_promotion_adjustment = order.adjustments.promotion.reorder("amount ASC, created_at DESC").first
+        if best_promotion_adjustment = order.adjustments.promotion.eligible.reorder("amount ASC, created_at DESC").first
           other_promotions = order.adjustments.promotion.where("id NOT IN (?)", best_promotion_adjustment.id)
           other_promotions.update_all(eligible: false)
         end

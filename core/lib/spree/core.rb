@@ -38,7 +38,9 @@ end
 require 'spree/core/version'
 require 'spree/core/engine'
 
+require 'spree/i18n'
 require 'spree/money'
+require 'spree/promo/coupon_applicator'
 
 require 'spree/core/delegate_belongs_to'
 require 'spree/core/ext/active_record'

@@ -3,7 +3,7 @@ require 'spec_helper'
 describe Spree::Api::ShipmentsController do
   render_views
   let!(:shipment) { create(:shipment) }
-  let!(:attributes) { [:id, :tracking, :number, :cost, :shipped_at, :stock_location_name, :order_id, :shipping_rates, :shipping_method, :inventory_units] }
+  let!(:attributes) { [:id, :tracking, :number, :cost, :shipped_at, :stock_location_name, :order_id, :shipping_rates, :shipping_methods] }
 
   before do
     stub_authentication!
@@ -91,30 +91,20 @@ describe Spree::Api::ShipmentsController do
 
     context 'for completed shipments' do
       let(:order) { create :completed_order_with_totals }
-
       let!(:resource_scoping) { { :order_id => order.to_param, :id => order.shipments.first.to_param } }
 
-      it 'can add a variant to a shipment' do
-        params = {
-          variant_id: variant.to_param,
-          quantity: 2
-        }
-        api_put :add, params
+      it 'adds a variant to a shipment' do
+        api_put :add, { variant_id: variant.to_param, quantity: 2 }
         response.status.should == 200
-        json_response['inventory_units'].select { |h| h['variant_id'] == variant.id }.size.should == 2
+        json_response['manifest'].detect { |h| h['variant']['id'] == variant.id }["quantity"].should == 2
       end
 
-      it 'can remove a variant from a shipment' do
+      it 'removes a variant from a shipment' do
         order.contents.add(variant, 2)
 
-        params = {
-          variant_id: variant.to_param,
-          quantity: 1
-        }
-
-        api_put :remove, params
+        api_put :remove, { variant_id: variant.to_param, quantity: 1 }
         response.status.should == 200
-        json_response['inventory_units'].select { |h| h['variant_id'] == variant.id }.size.should == 1
+        json_response['manifest'].detect { |h| h['variant']['id'] == variant.id }["quantity"].should == 1
      end
     end
 

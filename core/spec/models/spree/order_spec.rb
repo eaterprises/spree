@@ -54,12 +54,38 @@ describe Spree::Order do
   end
 
   context "#associate_user!" do
-    it "should associate a user with this order" do
+    it "should associate a user with a persisted order" do
+      order = FactoryGirl.create(:order_with_line_items)
+      user = FactoryGirl.create(:user)
+
       order.user = nil
       order.email = nil
       order.associate_user!(user)
       order.user.should == user
       order.email.should == user.email
+
+      # verify that the changes we made were persisted
+      order.reload
+      order.user.should == user
+      order.email.should == user.email
+    end
+
+    it "should associate a user with a non-persisted order" do
+      order = Spree::Order.new
+
+      expect do
+        order.associate_user!(user)
+      end.to change { [order.user, order.email] }.from([nil, nil]).to([user, user.email])
+    end
+
+    it "should not persist an invalid address" do
+      address = Spree::Address.new
+      order.user = nil
+      order.email = nil
+      order.ship_address = address
+      expect do
+        order.associate_user!(user)
+      end.not_to change { address.persisted? }.from(false)
     end
   end
 
@@ -171,13 +197,32 @@ describe Spree::Order do
   end
 
   context "#process_payments!" do
+    let(:payment) { stub_model(Spree::Payment) }
+    before { order.stub :pending_payments => [payment], :total => 10 }
+
     it "should process the payments" do
-      order.stub(:total).and_return(10)
-      payment = stub_model(Spree::Payment)
-      payments = [payment]
-      order.stub(:payments).and_return(payments)
-      payments.first.should_receive(:process!)
-      order.process_payments!
+      payment.should_receive(:process!)
+      order.process_payments!.should be_true
+    end
+
+    it "should return false if no pending_payments available" do
+      order.stub :pending_payments => []
+      order.process_payments!.should be_false
+    end
+
+    context "when a payment raises a GatewayError" do
+      before { payment.should_receive(:process!).and_raise(Spree::Core::GatewayError) }
+
+      it "should return true when configured to allow checkout on gateway failures" do
+        Spree::Config.set :allow_checkout_on_gateway_error => true
+        order.process_payments!.should be_true
+      end
+
+      it "should return false when not configured to allow checkout on gateway failures" do
+        Spree::Config.set :allow_checkout_on_gateway_error => false
+        order.process_payments!.should be_false
+      end
+
     end
   end
 
@@ -428,6 +473,14 @@ describe Spree::Order do
     end
   end
 
+  context "#confirmation_required?" do
+    it "does not bomb out when an order has an unpersisted payment" do
+      order = Spree::Order.new
+      order.payments.build
+      assert !order.confirmation_required?
+    end
+  end
+
   # Regression test for #2191
   context "when an order has an adjustment that zeroes the total, but another adjustment for shipping that raises it above zero" do
     let!(:persisted_order) { create(:order) }
@@ -455,24 +508,56 @@ describe Spree::Order do
     end
   end
 
-  # Related to the fix for #2694
-  context "#has_unprocessed_payments?" do
-    let!(:persisted_order) { create(:order) }
+  context "promotion adjustments" do
+    let(:originator) { double("Originator", id: 1) }
+    let(:adjustment) { double("Adjustment", originator: originator) }
 
-    context "with payments in the 'checkout' state" do
-      before do
-        create(:payment, :order => persisted_order, :state => 'checkout')
-      end
+    before { order.stub_chain(:adjustments, :promotion, reload: [adjustment]) }
 
-      it "returns true" do
-        assert persisted_order.has_unprocessed_payments?
+    context "order has an adjustment from given promo action" do
+      it { expect(order.promotion_credit_exists? originator).to be_true }
+    end
+
+    context "order has no adjustment from given promo action" do
+      before { originator.stub(id: 12) }
+      it { expect(order.promotion_credit_exists? originator).to be_true }
+    end
+  end
+
+  context "payment required?" do
+    let(:order) { Spree::Order.new }
+
+    context "total is zero" do
+      it { order.payment_required?.should be_false }
+    end
+
+    context "total > zero" do
+      before { order.stub(total: 1) }
+      it { order.payment_required?.should be_true }
+    end
+  end
+
+  context "add_update_hook" do
+    before do
+      Spree::Order.class_eval do
+        register_update_hook :add_awesome_sauce
       end
     end
 
-    context "with no payments in the 'checkout' state" do
-      it "returns false" do
-        assert !persisted_order.has_unprocessed_payments?
-      end
+    after do
+      Spree::Order.update_hooks = Set.new
+    end
+
+    it "calls hook during update" do
+      order = create(:order)
+      order.should_receive(:add_awesome_sauce)
+      order.update!
+    end
+
+    it "calls hook during finalize" do
+      order = create(:order)
+      order.should_receive(:add_awesome_sauce)
+      order.finalize!
     end
   end
 end

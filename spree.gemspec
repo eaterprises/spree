@@ -12,7 +12,7 @@ Gem::Specification.new do |s|
   s.require_path = 'lib'
   s.requirements << 'none'
   s.required_ruby_version     = '>= 1.9.3'
-  s.required_rubygems_version = '>= 1.8.25'
+  s.required_rubygems_version = '>= 1.8.23'
 
   s.author       = 'Sean Schofield'
   s.email        = 'sean@spreecommerce.com'
@@ -22,7 +22,6 @@ Gem::Specification.new do |s|
   s.add_dependency 'spree_core', version
   s.add_dependency 'spree_api', version
   s.add_dependency 'spree_backend', version
-  s.add_dependency 'spree_dash', version
   s.add_dependency 'spree_frontend', version
   s.add_dependency 'spree_sample', version
   s.add_dependency 'spree_cmd', version

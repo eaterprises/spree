@@ -15,11 +15,11 @@ module Spree
     def link_to_cart(text = nil)
       return "" if current_spree_page?(spree.cart_path)
 
-      text = text ? h(text) : t('cart')
+      text = text ? h(text) : Spree.t('cart')
       css_class = nil
 
       if current_order.nil? or current_order.line_items.empty?
-        text = "#{text}: (#{t('empty')})"
+        text = "#{text}: (#{Spree.t('empty')})"
         css_class = 'empty'
       else
         text = "#{text}: (#{current_order.item_count})  <span class='amount'>#{current_order.display_total.to_html}</span>".html_safe
@@ -80,13 +80,13 @@ module Spree
     def breadcrumbs(taxon, separator="&nbsp;&raquo;&nbsp;")
       return "" if current_page?("/") || taxon.nil?
       separator = raw(separator)
-      crumbs = [content_tag(:li, link_to(t(:home) , spree.root_path) + separator)]
+      crumbs = [content_tag(:li, link_to(Spree.t(:home), spree.root_path) + separator)]
       if taxon
-        crumbs << content_tag(:li, link_to(t(:products) , products_path) + separator)
+        crumbs << content_tag(:li, link_to(Spree.t(:products), products_path) + separator)
         crumbs << taxon.ancestors.collect { |ancestor| content_tag(:li, link_to(ancestor.name , seo_url(ancestor)) + separator) } unless taxon.ancestors.empty?
         crumbs << content_tag(:li, content_tag(:span, link_to(taxon.name , seo_url(taxon))))
       else
-        crumbs << content_tag(:li, content_tag(:span, t(:products)))
+        crumbs << content_tag(:li, content_tag(:span, Spree.t(:products)))
       end
       crumb_list = content_tag(:ul, raw(crumbs.flatten.map{|li| li.mb_chars}.join), class: 'inline')
       content_tag(:nav, crumb_list, id: 'breadcrumbs', class: 'sixteen columns')
@@ -115,7 +115,7 @@ module Spree
       end
 
       countries.collect do |country|
-        country.name = I18n.t(country.iso, scope: 'country_names', default: country.name)
+        country.name = Spree.t(country.iso, scope: 'country_names', default: country.name)
         country
       end.sort { |a, b| a.name <=> b.name }
     end
@@ -143,7 +143,7 @@ module Spree
 
     def pretty_time(time)
       [I18n.l(time.to_date, format: :long),
-        time.strftime("%H:%m %p")].join(" ")
+        time.strftime("%l:%M %p")].join(" ")
     end
 
     def method_missing(method_name, *args, &block)
@@ -166,7 +166,6 @@ module Spree
     end
 
     private
-
     # Returns style of image or nil
     def image_style_from_method_name(method_name)
       if style = method_name.to_s.sub(/_image$/, '')
@@ -175,18 +174,28 @@ module Spree
       end
     end
 
+    def create_product_image_tag(image, product, options, style)
+      options.reverse_merge! alt: image.alt.blank? ? product.name : image.alt
+      image_tag image.attachment.url(style), options
+    end
+
     def define_image_method(style)
       self.class.send :define_method, "#{style}_image" do |product, *options|
         options = options.first || {}
         if product.images.empty?
-          image_tag "noimage/#{style}.png", options
+          if !product.is_a?(Spree::Variant) && !product.variant_images.empty?
+            create_product_image_tag(product.variant_images.first, product, options, style)
+          else
+            if product.is_a?(Variant) && !product.product.variant_images.empty?
+              create_product_image_tag(product.product.variant_images.first, product, options, style)
+            else
+              image_tag "noimage/#{style}.png", options
+            end
+          end
         else
-          image = product.images.first
-          options.reverse_merge! alt: image.alt.blank? ? product.name : image.alt
-          image_tag image.attachment.url(style), options
+          create_product_image_tag(product.images.first, product, options, style)
         end
       end
     end
-
   end
 end

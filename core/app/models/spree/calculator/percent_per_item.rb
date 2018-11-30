@@ -1,17 +1,17 @@
 module Spree
 
   # A calculator for promotions that calculates a percent-off discount
-  # for all matching products in an order. This should not be used as a 
+  # for all matching products in an order. This should not be used as a
   # shipping calculator since it would be the same thing as a flat percent
   # off the entire order.
-  
+
   class Calculator::PercentPerItem < Calculator
     preference :percent, :decimal, :default => 0
 
     attr_accessible :preferred_percent
 
     def self.description
-      I18n.t(:percent_per_item)
+      Spree.t(:percent_per_item)
     end
 
     def compute(object=nil)
@@ -23,10 +23,12 @@ module Spree
 
   private
 
-    # Returns all products that match the promotion's rule. 
+    # Returns all products that match the promotion's rule.
     def matching_products
-      @matching_products ||= if compute_on_promotion?
-        self.calculable.promotion.rules.map(&:products).flatten
+      if compute_on_promotion?
+        self.calculable.promotion.rules.map do |rule|
+          rule.respond_to?(:products) ? rule.products : []
+        end.flatten
       end
     end
 

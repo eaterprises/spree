@@ -16,6 +16,7 @@ module Spree
     it 'gets list of stock movements' do
       api_get :index, stock_location_id: stock_location.to_param
       json_response['stock_movements'].first.should have_attributes(attributes)
+      json_response['stock_movements'].first['stock_item']['count_on_hand'].should eq 11
     end
 
     it 'requires a stock_location_id to be passed as a parameter' do
@@ -58,12 +59,6 @@ module Spree
         api_post :create, params
         response.status.should == 201
         json_response.should have_attributes(attributes)
-      end
-
-      it 'can delete a stock movement' do
-        api_delete :destroy, id: stock_movement.to_param
-        response.status.should == 204
-        lambda { stock_movement.reload }.should raise_error(ActiveRecord::RecordNotFound)
       end
     end
   end

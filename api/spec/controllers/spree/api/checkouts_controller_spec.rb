@@ -15,7 +15,7 @@ module Spree
       create(:stock_location)
 
       @shipping_method = create(:shipping_method, :zones => [country_zone])
-      @payment_method = create(:payment_method)
+      @payment_method = create(:bogus_payment_method)
     end
 
     after do
@@ -57,22 +57,41 @@ module Spree
         order.state.should eq "cart"
         order.update_column(:email, nil) # email is necessary to transition from cart to address
 
-        api_put :update, :id => order.to_param
+        api_put :update, :id => order.to_param, :order_token => order.token
 
         # Order has not transitioned
         json_response['state'].should == 'cart'
       end
 
-      it "should transition a recently created order from cart do address" do
+      it "should transition a recently created order from cart to address" do
         order.state.should eq "cart"
         order.email.should_not be_nil
-        api_put :update, :id => order.to_param
+        api_put :update, :id => order.to_param, :order_token => order.token
+        order.reload.state.should eq "address"
+      end
+
+      it "can take line_items_attributes as a parameter" do
+        line_item = order.line_items.first
+        api_put :update, :id => order.to_param, :order_token => order.token,
+                         :order => { :line_items_attributes => { line_item.id => { :quantity => 1 } } }
+        response.status.should == 200
+        order.reload.state.should eq "address"
+      end
+
+      it "can take line_items as a parameter" do
+        line_item = order.line_items.first
+        api_put :update, :id => order.to_param, :order_token => order.token,
+                         :order => { :line_items => { line_item.id => { :quantity => 1 } } }
+        response.status.should == 200
         order.reload.state.should eq "address"
       end
 
       it "will return an error if the order cannot transition" do
+        order.bill_address = nil
+        order.save
         order.update_column(:state, "address")
-        api_put :update, :id => order.to_param
+        api_put :update, :id => order.to_param, :order_token => order.token
+        # Order has not transitioned
         response.status.should == 422
       end
 
@@ -89,7 +108,7 @@ module Spree
           :country_id => @country.id
         }
         api_put :update,
-                :id => order.to_param,
+                :id => order.to_param, :order_token => order.token,
                 :order => { :bill_address_attributes => billing_address, :ship_address_attributes => shipping_address }
         json_response['state'].should == 'delivery'
         json_response['bill_address']['firstname'].should == 'John'
@@ -100,32 +119,72 @@ module Spree
       it "can update shipping method and transition from delivery to payment" do
         order.update_column(:state, "delivery")
         shipment = create(:shipment, :order => order)
-        shipping_rate = shipment.shipping_rates.first
-        api_put :update, :id => order.to_param, :order => { :shipments_attributes => { "0" => { :selected_shipping_rate_id => shipping_rate.id, :id => shipment.id } } }
-        json_response['shipments'][0]['shipping_method']['name'].should == @shipping_method.name
-        json_response['state'].should == 'payment'
+        shipment.refresh_rates
+        shipping_rate = shipment.shipping_rates.where(:selected => false).first
+        api_put :update, :id => order.to_param, :order_token => order.token,
+          :order => { :shipments_attributes => { "0" => { :selected_shipping_rate_id => shipping_rate.id, :id => shipment.id } } }
         response.status.should == 200
+        # Find the correct shipment...
+        json_shipment = json_response['shipments'].detect { |s| s["id"] == shipment.id }
+        # Find the correct shipping rate for that shipment...
+        json_shipping_rate = json_shipment['shipping_rates'].detect { |sr| sr["id"] == shipping_rate.id }
+        # ... And finally ensure that it's selected
+        json_shipping_rate['selected'].should be_true
+        # Order should automatically transfer to payment because all criteria are met
+        json_response['state'].should == 'payment'
       end
 
       it "can update payment method and transition from payment to confirm" do
         order.update_column(:state, "payment")
-        api_put :update, :id => order.to_param, :order => { :payments_attributes => [{ :payment_method_id => @payment_method.id }] }
+        api_put :update, :id => order.to_param, :order_token => order.token,
+          :order => { :payments_attributes => [{ :payment_method_id => @payment_method.id }] }
         json_response['state'].should == 'confirm'
         json_response['payments'][0]['payment_method']['name'].should == @payment_method.name
+        json_response['payments'][0]['amount'].should == order.total.to_s
         response.status.should == 200
+      end
+
+      it "can update payment method with source and transition from payment to confirm" do
+        order.update_column(:state, "payment")
+        source_attributes = {
+          "number" => "4111111111111111",
+          "month" => 1.month.from_now.month,
+          "year" => 1.month.from_now.year,
+          "verification_value" => "123"
+        }
+
+        api_put :update, :id => order.to_param, :order_token => order.token,
+          :order => { :payments_attributes => [{ :payment_method_id => @payment_method.id.to_s }],
+                      :payment_source => { @payment_method.id.to_s => source_attributes } }
+        json_response['payments'][0]['payment_method']['name'].should == @payment_method.name
+        json_response['payments'][0]['amount'].should == order.total.to_s
+        response.status.should == 200
+      end
+
+      it "returns errors when source is missing attributes" do
+        order.update_column(:state, "payment")
+        api_put :update, :id => order.to_param, :order_token => order.token,
+          :order => { :payments_attributes => [{ :payment_method_id => @payment_method.id.to_s }],
+                      :payment_source => { @payment_method.id.to_s => { } } }
+        response.status.should == 422
+        cc_errors = json_response['errors']['payments.Credit Card']
+        cc_errors.should include("Number can't be blank")
+        cc_errors.should include("Month is not a number")
+        cc_errors.should include("Year is not a number")
+        cc_errors.should include("Verification Value can't be blank")
       end
 
       it "can transition from confirm to complete" do
         order.update_column(:state, "confirm")
         Spree::Order.any_instance.stub(:payment_required? => false)
-        api_put :update, :id => order.to_param
+        api_put :update, :id => order.to_param, :order_token => order.token
         json_response['state'].should == 'complete'
         response.status.should == 200
       end
 
       it "returns the order if the order is already complete" do
         order.update_column(:state, "complete")
-        api_put :update, :id => order.to_param
+        api_put :update, :id => order.to_param, :order_token => order.token
         json_response['number'].should == order.number
         response.status.should == 200
       end
@@ -135,14 +194,16 @@ module Spree
         it "can assign a user to the order" do
           user = create(:user)
           # Need to pass email as well so that validations succeed
-          api_put :update, :id => order.to_param, :order => { :user_id => user.id, :email => "guest@spreecommerce.com" }
+          api_put :update, :id => order.to_param, :order_token => order.token,
+            :order => { :user_id => user.id, :email => "guest@spreecommerce.com" }
           response.status.should == 200
           json_response['user_id'].should == user.id
         end
       end
 
       it "can assign an email to the order" do
-        api_put :update, :id => order.to_param, :order => { :email => "guest@spreecommerce.com" }
+        api_put :update, :id => order.to_param, :order_token => order.token,
+          :order => { :email => "guest@spreecommerce.com" }
         json_response['email'].should == "guest@spreecommerce.com"
         response.status.should == 200
       end
@@ -151,7 +212,7 @@ module Spree
         order.update_column(:state, "payment")
         Spree::Promo::CouponApplicator.should_receive(:new).with(order).and_call_original
         Spree::Promo::CouponApplicator.any_instance.should_receive(:apply).and_return({:coupon_applied? => true})
-        api_put :update, :id => order.to_param, :order => { :coupon_code => "foobar" }
+        api_put :update, :id => order.to_param, :order_token => order.token, :order => { :coupon_code => "foobar" }
       end
     end
 
@@ -160,7 +221,7 @@ module Spree
       it "can transition an order to the next state" do
         order.update_column(:email, "spree@example.com")
 
-        api_put :next, :id => order.to_param
+        api_put :next, :id => order.to_param, :order_token => order.token
         response.status.should == 200
         json_response['state'].should == 'address'
       end
@@ -168,7 +229,7 @@ module Spree
       it "cannot transition if order email is blank" do
         order.update_column(:email, nil)
 
-        api_put :next, :id => order.to_param
+        api_put :next, :id => order.to_param, :order_token => order.token
         response.status.should == 422
         json_response['error'].should =~ /could not be transitioned/
       end
@@ -178,7 +239,7 @@ module Spree
         Spree::Promo::CouponApplicator.should_receive(:new).with(order).and_call_original
         coupon_result = { :coupon_applied? => true }
         Spree::Promo::CouponApplicator.any_instance.should_receive(:apply).and_return(coupon_result)
-        api_put :update, :id => order.to_param, :order => { :coupon_code => "foobar" }
+        api_put :update, :id => order.to_param, :order_token => order.token, :order => { :coupon_code => "foobar" }
       end
     end
   end

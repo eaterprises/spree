@@ -6,50 +6,60 @@ module Spree
       @order = order
     end
 
-    def verify(line_item, shipment=nil)
-      return true unless order.completed?
+    # Only verify inventory for completed orders
+    # as carts have inventory assigned via create_proposed_shipment methh
+    #
+    # or when shipment is explicitly passed
+    def verify(line_item, shipment = nil)
+      if order.completed? || shipment.present?
 
-      variant_units = inventory_units_for(line_item.variant)
+        variant_units = inventory_units_for(line_item.variant)
 
-      if variant_units.size < line_item.quantity
-        #add
-        quantity = line_item.quantity - variant_units.size
+        if variant_units.size < line_item.quantity
+          quantity = line_item.quantity - variant_units.size
 
-        shipment = determine_target_shipment(line_item.variant) unless shipment
-
-        add_to_shipment(shipment, line_item.variant, quantity)
-
-      elsif variant_units.size > line_item.quantity
-        #remove
-        quantity = variant_units.size - line_item.quantity
-
-        order.shipments.each do |shipment|
-          break if quantity == 0
-
-          quantity -= remove_from_shipment(shipment, line_item.variant, quantity)
+          shipment = determine_target_shipment(line_item.variant) unless shipment
+          add_to_shipment(shipment, line_item.variant, quantity)
+        elsif variant_units.size > line_item.quantity
+          remove(line_item, variant_units, shipment)
         end
-
+      else
+        true
       end
     end
 
     def inventory_units_for(variant)
-      return [] unless order.completed?
-
       units = order.shipments.collect{|s| s.inventory_units.all}.flatten
       units.group_by(&:variant_id)[variant.id] || []
     end
 
     private
+    def remove(line_item, variant_units, shipment = nil)
+      quantity = variant_units.size - line_item.quantity
 
+      if shipment.present?
+        remove_from_shipment(shipment, line_item.variant, quantity)
+      else
+        order.shipments.each do |shipment|
+          break if quantity == 0
+          quantity -= remove_from_shipment(shipment, line_item.variant, quantity)
+        end
+      end
+    end
+
+    # Returns either one of the shipment:
+    #
+    # first unshipped that already includes this variant
+    # first unshipped that's leaving from a stock_location that stocks this variant
+    #
     def determine_target_shipment(variant)
-      # get first unshipped shipment that already includes this variant
-      shipment = order.shipments.detect { |shipment| (shipment.ready? || shipment.pending?) && shipment.include?(variant) }
+      shipment = order.shipments.detect do |shipment|
+        (shipment.ready? || shipment.pending?) && shipment.include?(variant)
+      end
 
-      # get first unshipped shipment that's leaving from the a stock_location that stocks this variant
-      shipment ||= order.shipments.detect { |shipment| (shipment.ready? || shipment.pending?) && variant.stock_location_ids.include?(shipment.stock_location_id) }
-
-      # ship it!
-      shipment
+      shipment ||= order.shipments.detect do |shipment|
+        (shipment.ready? || shipment.pending?) && variant.stock_location_ids.include?(shipment.stock_location_id)
+      end
     end
 
     def add_to_shipment(shipment, variant, quantity)
@@ -99,6 +109,5 @@ module Spree
       # return quantity removed
       removed_quantity
     end
-
   end
 end

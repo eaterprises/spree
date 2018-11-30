@@ -6,12 +6,12 @@ module Spree
       @order = order
     end
 
-    def add(variant, quantity, shipment=nil)
+    def add(variant, quantity, currency=nil, shipment=nil)
       #get current line item for variant if exists
       line_item = order.find_line_item_by_variant(variant)
 
       #add variant qty to line_item
-      add_to_line_item(line_item, variant, quantity, shipment)
+      add_to_line_item(line_item, variant, quantity, currency, shipment)
     end
 
     def remove(variant, quantity, shipment=nil)
@@ -26,10 +26,10 @@ module Spree
 
     private
 
-    def add_to_line_item(line_item, variant, quantity, shipment=nil)
+    def add_to_line_item(line_item, variant, quantity, currency=nil, shipment=nil)
       if line_item
         line_item.target_shipment = shipment
-        line_item.quantity += quantity
+        line_item.quantity += quantity.to_i
         line_item.currency = currency unless currency.nil?
         line_item.save
       else

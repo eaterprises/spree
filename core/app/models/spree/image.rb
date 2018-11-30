@@ -10,7 +10,7 @@ module Spree
                       default_style: :product,
                       url: '/spree/products/:id/:style/:basename.:extension',
                       path: ':rails_root/public/spree/products/:id/:style/:basename.:extension',
-                      convert_options: { all: '-strip -auto-orient' }
+                      convert_options: { all: '-strip -auto-orient -colorspace RGB' }
 
     # save the w,h of the original image (from which others can be calculated)
     # we need to look at the write-queue for images which have not been saved yet
@@ -19,7 +19,7 @@ module Spree
     include Spree::Core::S3Support
     supports_s3 :attachment
 
-    Spree::Image.attachment_definitions[:attachment][:styles] = ActiveSupport::JSON.decode(Spree::Config[:attachment_styles])
+    Spree::Image.attachment_definitions[:attachment][:styles] = ActiveSupport::JSON.decode(Spree::Config[:attachment_styles]).symbolize_keys!
     Spree::Image.attachment_definitions[:attachment][:path] = Spree::Config[:attachment_path]
     Spree::Image.attachment_definitions[:attachment][:url] = Spree::Config[:attachment_url]
     Spree::Image.attachment_definitions[:attachment][:default_url] = Spree::Config[:attachment_default_url]

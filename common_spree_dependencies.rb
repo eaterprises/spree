@@ -1,7 +1,7 @@
 # By placing all of Spree's shared dependencies in this file and then loading
 # it for each component's Gemfile, we can be sure that we're only testing just
 # the one component of Spree.
-source 'http://rubygems.org'
+source 'https://rubygems.org'
 
 platforms :ruby do
   gem 'sqlite3'
@@ -33,7 +33,7 @@ group :test do
   gem 'launchy'
   gem 'pry'
   gem 'rspec-rails', '~> 2.13.0'
-  gem 'selenium-webdriver', '2.32.0'
+  gem 'selenium-webdriver', '2.33.0'
   gem 'simplecov'
   gem 'webmock', '1.8.11'
 end

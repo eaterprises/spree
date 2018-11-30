@@ -17,9 +17,9 @@ module Spree
         # through options hash
         def perform(options = {})
           order = options[:order]
-          return if order.promotion_credit_exists?(self.promotion)
+          return if order.promotion_credit_exists?(self)
 
-          self.create_adjustment("#{I18n.t(:promotion)} (#{promotion.name})", order, order)
+          self.create_adjustment("#{Spree.t(:promotion)} (#{promotion.name})", order, order)
         end
 
         # Override of CalculatedAdjustments#create_adjustment so promotional

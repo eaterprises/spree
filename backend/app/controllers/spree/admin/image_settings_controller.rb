@@ -15,12 +15,11 @@ module Spree
 
         respond_to do |format|
           format.html {
-            flash[:success] = t(:image_settings_updated)
+            flash[:success] = Spree.t(:image_settings_updated)
             redirect_to spree.edit_admin_image_settings_path
           }
         end
       end
-
 
       private
 
@@ -55,7 +54,7 @@ module Spree
           Spree::Image.attachment_definitions[:attachment].delete :storage
         end
 
-        Spree::Image.attachment_definitions[:attachment][:styles] = ActiveSupport::JSON.decode(Spree::Config[:attachment_styles])
+        Spree::Image.attachment_definitions[:attachment][:styles] = ActiveSupport::JSON.decode(Spree::Config[:attachment_styles]).symbolize_keys!
         Spree::Image.attachment_definitions[:attachment][:path] = Spree::Config[:attachment_path]
         Spree::Image.attachment_definitions[:attachment][:default_url] = Spree::Config[:attachment_default_url]
         Spree::Image.attachment_definitions[:attachment][:default_style] = Spree::Config[:attachment_default_style]
@@ -63,4 +62,3 @@ module Spree
     end
   end
 end
-

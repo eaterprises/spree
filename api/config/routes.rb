@@ -29,7 +29,13 @@ Spree::Core::Engine.routes.draw do
     end
 
     resources :orders do
-      resources :return_authorizations
+      resources :return_authorizations do
+        member do
+          put :add
+          put :cancel
+          put :receive
+        end
+      end
       member do
         put :address
         put :delivery
@@ -81,5 +87,8 @@ Spree::Core::Engine.routes.draw do
       resources :stock_movements
       resources :stock_items
     end
+
+    get '/config/money', :to => 'config#money'
+    get '/config', :to => 'config#show'
   end
 end

@@ -4,11 +4,13 @@ module Spree
       before_filter :load_order, :only => [:create, :new, :index, :fire]
       before_filter :load_payment, :except => [:create, :new, :index]
       before_filter :load_data
+      before_filter :can_transition_to_payment
 
       respond_to :html
 
       def index
         @payments = @order.payments
+        redirect_to new_admin_order_payment_url(@order) if @payments.empty?
       end
 
       def new
@@ -37,8 +39,8 @@ module Spree
             until @order.completed?
               @order.next!
             end
-            flash[:success] = t(:new_order_completed)
-            redirect_to admin_order_url(@order)
+            flash[:success] = Spree.t(:new_order_completed)
+            redirect_to edit_admin_order_url(@order)
           end
 
         rescue Spree::Core::GatewayError => e
@@ -53,9 +55,9 @@ module Spree
         # Because we have a transition method also called void, we do this to avoid conflicts.
         event = "void_transaction" if event == "void"
         if @payment.send("#{event}!")
-          flash[:success] = t(:payment_updated)
+          flash[:success] = Spree.t(:payment_updated)
         else
-          flash[:error] = t(:cannot_perform_operation)
+          flash[:error] = Spree.t(:cannot_perform_operation)
         end
       rescue Spree::Core::GatewayError => ge
         flash[:error] = "#{ge.message}"
@@ -83,6 +85,13 @@ module Spree
         @previous_cards = @order.credit_cards.with_payment_profile
       end
 
+      def can_transition_to_payment
+        unless @order.billing_address.present? 
+          flash[:notice] = Spree.t(:fill_in_customer_info)
+          redirect_to edit_admin_order_customer_url(@order)
+        end
+      end
+
       def load_order
         @order = Order.find_by_number!(params[:order_id])
         authorize! action, @order
@@ -91,7 +100,6 @@ module Spree
       def load_payment
         @payment = Payment.find(params[:id])
       end
-
     end
   end
 end
