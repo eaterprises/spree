@@ -44,6 +44,8 @@ Branched off of Spree's v2.0.4, it contains the following extra commits:
 * [002b725d1..e27805789](https://github.com/spree/spree/commit/7b6045085f9aebcd2f0d7ba73fc8867b80e07ca3#diff-1e88c46e0e0d3d6469c50c9be98ba2a1)
     Introduced in [#7](https://github.com/openfoodfoundation/spree/pull/7) to
     have a valid credit card factory and thus have tests passing.
+* [c74ac05](https://github.com/openfoodfoundation/spree/pull/38/commits/c74ac05467830b942589df68c2d929abd3453597)
+    Introduced in [#38](https://github.com/openfoodfoundation/spree/pull/38/) to retrieve the appropriate shipment after changing an order's shipments.
 
 [![Code Climate](https://codeclimate.com/github/spree/spree.png)](https://codeclimate.com/github/spree/spree)
 
