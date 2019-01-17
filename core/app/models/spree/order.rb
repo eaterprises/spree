@@ -301,7 +301,7 @@ module Spree
 
     def shipment
       ActiveSupport::Deprecation.warn("[SPREE] Spree::Order#shipment is typically incorrect due to multiple shipments and will be deprecated in Spree 2.1, please process Spree::Order#shipments instead.")
-      @shipment ||= shipments.last
+      shipments.last
     end
 
     def shipped_shipments
